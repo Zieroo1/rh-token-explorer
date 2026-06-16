@@ -6,7 +6,6 @@ import { ethers } from 'ethers';
 const RPC_URL = process.env.RPC_URL || 'https://poptye-always-win.poptyedev.com/';
 const WETH_ADDRESS = (process.env.WETH_ADDRESS || '0x0bd7d308f8e1639fab988df18a8011f41eacad73').toLowerCase();
 const ETH_USD = process.env.ETH_USD ? Number(process.env.ETH_USD) : null;
-const MAX_TRADES = 500;
 
 // ---------------------------------------------------------------------------
 // ABIs / event signatures (Uniswap V2 + V3)
@@ -216,7 +215,7 @@ async function getTrades(pool, token, quoteMeta) {
   });
 
   logs.sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex);
-  const sliced = logs.slice(0, MAX_TRADES);
+  const sliced = logs; // full history — no cap
 
   // 1) decode all swaps synchronously
   const trades = [];
@@ -367,7 +366,7 @@ async function computeEntry(walletInput, token, trades) {
     currentBalance,
     firstBuyTs: firstTs,
     lastBuyTs: lastTs,
-    note: trades.length >= MAX_TRADES ? `Only the latest ${MAX_TRADES} token trades were considered.` : null,
+    note: null,
   };
 }
 
