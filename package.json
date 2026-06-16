@@ -1,0 +1,18 @@
+{
+  "name": "rh-token-explorer",
+  "version": "1.0.0",
+  "description": "Token explorer for Robinhood L2 (chainId 4663): enter a token address, see market cap, buys and sells from the on-chain Uniswap V2 DEX.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2"
+  }
+}

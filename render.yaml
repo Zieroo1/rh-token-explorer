@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: rh-token-explorer
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Optional overrides — defaults are baked into the code, edit in the
+      # Render dashboard if the chain endpoints ever change:
+      # - key: RPC_URL
+      #   value: https://poptye-always-win.poptyedev.com/
+      # - key: EXPLORER_URL
+      #   value: https://so-explorer.poptyedev.com
+      # - key: ETH_USD          # set to also show USD even if the price feed is blocked
+      #   value: ""

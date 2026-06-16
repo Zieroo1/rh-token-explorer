@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Robinhood L2 — Token Explorer</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #131822; --panel2: #1a212e; --border: #232c3b;
+    --text: #e6edf3; --muted: #8b97a7; --accent: #4ea1ff;
+    --buy: #2ecc71; --sell: #ff5d5d; --warn: #f5a623;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .searchbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .searchbar select {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0 10px; font-size: 14px; cursor: pointer; flex: 0 0 auto;
+  }
+  .searchbar select:focus { outline: none; border-color: var(--accent); }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-family: var(--mono); font-size: 14px;
+  }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  button {
+    padding: 12px 20px; border-radius: 10px; border: none; cursor: pointer;
+    background: var(--accent); color: #06101f; font-weight: 600; font-size: 14px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; }
+  .stat { flex: 1; min-width: 150px; background: var(--panel2); border-radius: 10px; padding: 12px 14px; }
+  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .stat .value { font-size: 20px; font-weight: 700; margin-top: 4px; word-break: break-word; }
+  .tokenhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .tokenhead .sym { font-size: 22px; font-weight: 800; }
+  .tokenhead .nm { color: var(--muted); }
+  .addr { font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+  .buy { color: var(--buy); font-weight: 700; }
+  .sell { color: var(--sell); font-weight: 700; }
+  .mono { font-family: var(--mono); }
+  .warn { background: rgba(245,166,35,.12); border: 1px solid rgba(245,166,35,.4); color: var(--warn);
+          border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px; }
+  .err { background: rgba(255,93,93,.12); border: 1px solid rgba(255,93,93,.4); color: var(--sell);
+         border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+  .spinner { color: var(--muted); font-size: 14px; }
+  .controls { display: flex; align-items: center; gap: 14px; margin: -4px 0 18px; font-size: 13px; color: var(--muted); }
+  .controls label { cursor: pointer; user-select: none; }
+  .controls select { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+  .flash { animation: flash .6s ease; }
+  @keyframes flash { from { background: rgba(78,161,255,.18); } to { background: transparent; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🪙 Robinhood L2 — Token Explorer</h1>
+  <div class="sub">Enter a token address to see market cap, buys and sells from the on-chain DEX. <span id="chaininfo"></span></div>
+
+  <div class="searchbar">
+    <select id="preset" title="Quick select a token">
+      <option value="">⭐ Quick select…</option>
+    </select>
+    <input id="addr" type="text" placeholder="0x… token address" spellcheck="false" />
+    <button id="go">Search</button>
+  </div>
+
+  <div class="searchbar">
+    <input id="wallet" type="text" placeholder="0x… wallet address (optional — average entry market cap)" spellcheck="false" />
+    <button id="goWallet">Wallet stats</button>
+  </div>
+
+  <div class="controls">
+    <label><input type="checkbox" id="auto" checked /> Auto-refresh</label>
+    <select id="interval">
+      <option value="5">every 5s</option>
+      <option value="10" selected>every 10s</option>
+      <option value="30">every 30s</option>
+    </select>
+    <span id="updated" class="muted"></span>
+  </div>
+
+  <div id="status" class="spinner hidden"></div>
+  <div id="error" class="err hidden"></div>
+  <div id="result" class="hidden"></div>
+</div>
+
+<script>
+let CFG = { explorerUrl: '', chainId: 4663 };
+
+// Quick-select presets (add more here as needed)
+const PRESETS = [
+  { label: '$MARIAN', address: '0x01637b14b7378b99de75a64d50656d98488d9a4d' },
+];
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n, max = 6) => {
+  if (n == null || !isFinite(n)) return '—';
+  if (n === 0) return '0';
+  if (Math.abs(n) >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return n.toLocaleString('en-US', { maximumFractionDigits: max });
+};
+const fmtUsd = (n) => (n == null ? null : '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 }));
+// USD formatter that keeps precision for very small prices (e.g. $0.000054)
+const fmtUsdSmall = (n) => {
+  if (n == null || !isFinite(n)) return '—';
+  if (n === 0) return '$0';
+  if (Math.abs(n) >= 1) return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 12 });
+};
+const short = (a) => a ? a.slice(0, 6) + '…' + a.slice(-4) : '';
+const txLink = (h) => CFG.explorerUrl ? `${CFG.explorerUrl}/tx/${h}` : '#';
+const addrLink = (a) => CFG.explorerUrl ? `${CFG.explorerUrl}/address/${a}` : '#';
+const timeAgo = (ts) => {
+  if (!ts) return '—';
+  const s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+};
+
+async function loadConfig() {
+  try {
+    CFG = await (await fetch('/api/config')).json();
+    $('chaininfo').textContent = `Chain ID ${CFG.chainId}.`;
+  } catch {}
+}
+
+let currentAddress = null;
+let currentWallet = null;
+let timer = null;
+let reqSeq = 0; // monotonically increasing; stale (superseded) responses are ignored
+
+function scheduleAuto() {
+  if (timer) { clearInterval(timer); timer = null; }
+  if (!$('auto').checked || !currentAddress) return;
+  const sec = Number($('interval').value) || 10;
+  timer = setInterval(() => load(true), sec * 1000);
+}
+
+function showError(msg) {
+  $('error').textContent = '⚠ ' + msg;
+  $('error').classList.remove('hidden');
+}
+
+// silent=true -> auto-refresh (reuse last query); withWallet=true -> include wallet stats
+async function load(silent = false, withWallet = false) {
+  const addr = silent ? currentAddress : $('addr').value.trim();
+  if (!addr) { if (!silent) showError('Enter a token address.'); return; }
+
+  let wallet;
+  if (silent) {
+    wallet = currentWallet;
+  } else if (withWallet) {
+    wallet = $('wallet').value.trim();
+    if (!wallet) { showError('Enter a wallet address.'); return; }
+  } else {
+    wallet = null; // token-only search
+  }
+
+  // An explicit (non-silent) action becomes the new target and supersedes any
+  // in-flight or scheduled refresh: stop the timer and bump the sequence.
+  const seq = ++reqSeq;
+  if (!silent) {
+    if (timer) { clearInterval(timer); timer = null; }
+    $('error').classList.add('hidden');
+    $('result').classList.add('hidden');
+    $('status').classList.remove('hidden');
+    $('status').textContent = 'Reading the blockchain…';
+    $('go').disabled = true;
+    $('goWallet').disabled = true;
+  }
+
+  try {
+    let u = '/api/token?address=' + encodeURIComponent(addr);
+    if (wallet) u += '&wallet=' + encodeURIComponent(wallet);
+    const res = await fetch(u);
+    const data = await res.json();
+    if (seq !== reqSeq) return; // a newer request started -> drop this stale response
+    if (!res.ok || data.error) throw new Error(data.error || 'Request failed');
+    currentAddress = data.token.address;
+    currentWallet = wallet || null;
+    render(data);
+    $('updated').textContent = '🔄 updated at ' + new Date().toLocaleTimeString();
+    if (silent) {
+      const r = $('result');
+      r.classList.remove('flash'); void r.offsetWidth; r.classList.add('flash');
+    }
+  } catch (e) {
+    if (seq === reqSeq && !silent) showError(e.message);
+  } finally {
+    if (seq === reqSeq && !silent) {
+      $('status').classList.add('hidden');
+      $('go').disabled = false;
+      $('goWallet').disabled = false;
+      scheduleAuto(); // (re)start auto-refresh against the latest target
+    }
+  }
+}
+
+function render(d) {
+  const q = d.quoteSymbol || 'ETH';
+  const p = d.pricing;
+  let html = '';
+
+  // token header
+  html += `<div class="card">
+    <div class="tokenhead">
+      <span class="sym">${escapeHtml(d.token.symbol)}</span>
+      <span class="nm">${escapeHtml(d.token.name)}</span>
+    </div>
+    <div class="addr"><a href="${addrLink(d.token.address)}" target="_blank" rel="noopener">${d.token.address}</a></div>
+  </div>`;
+
+  // warnings
+  for (const w of d.warnings || []) {
+    html += `<div class="warn">${escapeHtml(w)}</div>`;
+  }
+
+  if (d.pair) {
+    html += `<div class="muted" style="font-size:13px;margin-bottom:10px">
+      Pool: <b>${escapeHtml(d.pair.dex)}</b> ·
+      <a class="mono" href="${addrLink(d.pair.address)}" target="_blank" rel="noopener">${short(d.pair.address)}</a>
+      · quoted in ${escapeHtml(d.pair.quoteToken.symbol)}</div>`;
+  }
+
+  if (d.hasPool && p) {
+    const mcap = d.ethUsd != null ? fmtUsd(p.marketCapUsd) : `${fmt(p.marketCapQuote)} ${q}`;
+    const price = d.ethUsd != null ? fmtUsdSmall(p.priceInQuote * d.ethUsd) : `${fmt(p.priceInQuote, 10)} ${q}`;
+    html += `<div class="card"><div class="row">
+      <div class="stat"><div class="label">Market Cap</div><div class="value">${mcap}</div></div>
+      <div class="stat"><div class="label">Price</div><div class="value">${price}</div></div>
+      <div class="stat"><div class="label">Liquidity (TVL, ${q})</div><div class="value">${fmt(p.liquidityQuote)}</div></div>
+      <div class="stat"><div class="label">Total Supply</div><div class="value">${fmt(d.token.totalSupplyFormatted, 0)}</div></div>
+    </div></div>`;
+
+    // average entry market cap for a wallet
+    if (d.entry) {
+      if (d.entry.found) {
+        const e = d.entry;
+        const entryMc = d.ethUsd != null ? fmtUsd(e.avgEntryMcUsd) : `${fmt(e.avgEntryMcQuote)} ${q}`;
+        const spent = d.ethUsd != null ? fmtUsd(e.totalSpentUsd) : `${fmt(e.totalSpentQuote)} ${q}`;
+        // Unrealized P&L on tokens actually held now (held balance * price gain)
+        const gainQuote = e.unrealizedPnlQuote ?? 0;
+        const pnlCls = gainQuote >= 0 ? 'buy' : 'sell';
+        let pnlMain = '—', pnlSub = '';
+        if (e.pnlPct != null) {
+          pnlMain = (e.pnlPct >= 0 ? '+' : '') + fmt(e.pnlPct, 1) + '%';
+          const gainAbs = d.ethUsd != null ? fmtUsd(Math.abs(gainQuote * d.ethUsd)) : `${fmt(Math.abs(gainQuote))} ${q}`;
+          pnlSub = (gainQuote >= 0 ? '+' : '-') + gainAbs;
+        }
+        const holdValue = d.ethUsd != null ? fmtUsd(e.currentValueUsd) : `${fmt(e.currentValueQuote)} ${q}`;
+        html += `<div class="card" style="border-color:var(--accent)">
+          <div class="label" style="margin-bottom:10px;color:var(--accent)">🎯 Average entry market cap · <span class="mono">${short(e.wallet)}</span></div>
+          <div class="row">
+            <div class="stat"><div class="label">Avg entry MC</div><div class="value">${entryMc}</div></div>
+            <div class="stat"><div class="label">Buys</div><div class="value">${e.buysCount}</div></div>
+            <div class="stat"><div class="label">Bought</div><div class="value">${fmt(e.totalTokensBought, 0)} ${escapeHtml(d.token.symbol)}</div></div>
+            <div class="stat"><div class="label">Spent</div><div class="value">${spent}</div></div>
+            <div class="stat"><div class="label">Holding now</div>
+              <div class="value">${fmt(e.currentBalance, 0)} ${escapeHtml(d.token.symbol)}</div>
+              <div class="muted" style="font-size:12px;margin-top:2px">${holdValue} value</div>
+            </div>
+            <div class="stat"><div class="label">Unrealized P&L (held)</div>
+              <div class="value ${pnlCls}">${pnlMain}</div>
+              ${pnlSub ? `<div class="${pnlCls}" style="font-size:13px;font-weight:600;margin-top:2px">${pnlSub}</div>` : ''}
+            </div>
+          </div>
+          ${e.note ? `<div class="muted" style="font-size:12px;margin-top:8px">${escapeHtml(e.note)}</div>` : ''}
+        </div>`;
+      } else {
+        html += `<div class="card muted">Wallet <span class="mono">${short(d.entry.wallet)}</span> has no buys of this token among the considered trades.</div>`;
+      }
+    }
+
+    // trade totals
+    const t = d.totals;
+    const buyVol = d.ethUsd != null ? fmtUsd(t.buyVolumeUsd) : `${fmt(t.buyVolumeQuote)} ${q}`;
+    const sellVol = d.ethUsd != null ? fmtUsd(t.sellVolumeUsd) : `${fmt(t.sellVolumeQuote)} ${q}`;
+    html += `<div class="card"><div class="row">
+      <div class="stat"><div class="label">Total trades</div><div class="value">${t.totalSwaps}</div></div>
+      <div class="stat"><div class="label">Buys</div><div class="value buy">${t.buys}</div></div>
+      <div class="stat"><div class="label">Sells</div><div class="value sell">${t.sells}</div></div>
+      <div class="stat"><div class="label">Buy volume</div><div class="value buy">${buyVol}</div></div>
+      <div class="stat"><div class="label">Sell volume</div><div class="value sell">${sellVol}</div></div>
+    </div></div>`;
+
+    // trades table
+    if (d.trades.length) {
+      let rows = '';
+      for (const tr of d.trades) {
+        rows += `<tr>
+          <td class="${tr.type}">${tr.type === 'buy' ? 'BUY' : 'SELL'}</td>
+          <td class="mono">${fmt(tr.tokenAmount)} ${escapeHtml(d.token.symbol)}</td>
+          <td class="mono">${fmt(tr.quoteAmount)} ${q}</td>
+          <td class="mono">${fmt(tr.priceInQuote, 10)}</td>
+          <td class="muted">${timeAgo(tr.timestamp)}</td>
+          <td><a class="mono" href="${addrLink(tr.maker)}" target="_blank" rel="noopener">${short(tr.maker)}</a></td>
+          <td><a class="mono" href="${txLink(tr.txHash)}" target="_blank" rel="noopener">${short(tr.txHash)}</a></td>
+        </tr>`;
+      }
+      html += `<div class="card">
+        <div class="label muted" style="margin-bottom:10px">Recent trades (${d.trades.length} of ${d.totals.totalSwaps})</div>
+        <table>
+          <thead><tr><th>Type</th><th>Amount</th><th>${q}</th><th>Price</th><th>Time</th><th>Trader</th><th>Tx</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    } else {
+      html += `<div class="card muted">No trades in this pool yet.</div>`;
+    }
+  } else {
+    html += `<div class="card muted">No DEX pool found for this token, so market cap and trades are unavailable.
+      It's either a new token without liquidity, or it trades outside a known DEX.</div>`;
+  }
+
+  $('result').innerHTML = html;
+  $('result').classList.remove('hidden');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// populate quick-select dropdown
+for (const t of PRESETS) {
+  const opt = document.createElement('option');
+  opt.value = t.address;
+  opt.textContent = t.label;
+  $('preset').appendChild(opt);
+}
+$('preset').addEventListener('change', () => {
+  const v = $('preset').value;
+  if (!v) return;
+  $('addr').value = v;
+  load(false, false);
+});
+
+$('go').addEventListener('click', () => load(false, false));
+$('addr').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(false, false); });
+$('goWallet').addEventListener('click', () => load(false, true));
+$('wallet').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(false, true); });
+
+// Auto-apply wallet changes: when a full address is typed/pasted, search it;
+// when the field is cleared, fall back to token-only.
+let walletDebounce = null;
+$('wallet').addEventListener('input', () => {
+  clearTimeout(walletDebounce);
+  walletDebounce = setTimeout(() => {
+    const v = $('wallet').value.trim();
+    if (v === '') {
+      if (currentWallet) { currentWallet = null; load(false, false); }
+      return;
+    }
+    if (/^0x[0-9a-fA-F]{40}$/.test(v) && v.toLowerCase() !== (currentWallet || '').toLowerCase()) {
+      load(false, true);
+    }
+  }, 700);
+});
+$('auto').addEventListener('change', scheduleAuto);
+$('interval').addEventListener('change', scheduleAuto);
+loadConfig();
+</script>
+</body>
+</html>
