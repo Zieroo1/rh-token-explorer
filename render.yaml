@@ -8,10 +8,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
-      # Optional overrides — defaults are baked into the code, edit in the
-      # Render dashboard if the chain endpoints ever change:
-      # - key: RPC_URL
-      #   value: https://poptye-always-win.poptyedev.com/
+      - key: RPC_URL
+        value: https://ac23019b22f1ae5a.offchainlabs.com/rpc/a6186cb065b52ca24da0d197e33b303c
+      # Optional overrides — edit in the Render dashboard if the chain endpoints change:
       # - key: EXPLORER_URL
       #   value: https://so-explorer.poptyedev.com
       # - key: ETH_USD          # set to also show USD even if the price feed is blocked

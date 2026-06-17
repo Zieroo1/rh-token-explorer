@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const RPC_URL = process.env.RPC_URL || 'https://poptye-always-win.poptyedev.com/';
+const RPC_URL = process.env.RPC_URL || 'https://ac23019b22f1ae5a.offchainlabs.com/rpc/a6186cb065b52ca24da0d197e33b303c';
 const WETH_ADDRESS = (process.env.WETH_ADDRESS || '0x0bd7d308f8e1639fab988df18a8011f41eacad73').toLowerCase();
 const ETH_USD = process.env.ETH_USD ? Number(process.env.ETH_USD) : null;
 
